@@ -200,7 +200,7 @@ def putOrderContext(category,orderId,contextMap):
     r.encoding = 'utf-8'  # 这里添加一行
     response = json_loads_byteified(r.text)
     return response
-
+'''
 
 
 
@@ -231,7 +231,7 @@ if processResult['retCode']==0:
     responseInfo = getResponseInfo(processResult)
     print(type(responseInfo))
     print(getContextValue(responseInfo,'testkey1'))
-    
+'''
 '''
 print sys.stdout.encoding + " - sys.stdout.encoding:"
 sys.stdout = codecs.getwriter('utf8')(sys.stdout) 
