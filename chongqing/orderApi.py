@@ -17,13 +17,34 @@ class ProcessResult(object):
     def __init__(self):
         return {'retCode':0, 'retMsg': ""}
     pass
+#根据订单返回的对象获取返回数值，返回值为int
+def getRetCode(processResult):
+    try:
+        return processResult['retCode']
+    except Exception:
+        return -1
+#根据订单系统返回值获取responseInfo对象，返回的类型是dict
+def getResponseInfo(processResult):
+    try:
+        responseInfo = processResult['responseInfo'];
+        return json.loads(responseInfo)
+    except Exception:
+        return ""
+def getContextValue(responseInfo,key):
+    try:
 
-
+        return responseInfo[key]
+    except Exception:
+        return ""
 def getDbid(orderId):
-    if not orderId.strip() and len(orderId) >= 7:
-        return orderId[-4:]
-    return ""
-
+    try:
+        #print('getDbid:' + orderId + ' len='+str(len(orderId)))
+        if len(orderId) >= 7:
+            #print('return :' + orderId[-4:])
+            return orderId[-4:]
+        return ""
+    except Exception:
+        return ""
 #定义创建的订单的上下文
 class OrderMainContext(object):
     #初始化map为空
@@ -43,7 +64,7 @@ class OrderMainContext(object):
 
     def setOrderId(self, orderId):
         self.orderId = orderId
-        if not orderId.strip() and len(orderId)>=7:
+        if len(orderId)>=7:
             self.dbid=orderId[-4:]
     def setOwnerKey(self, ownerKey):
         self.ownerKey = ownerKey
@@ -149,11 +170,10 @@ def startOrder(category,orderId):
 '''
 def getOrderContext(category,orderId,keyList):
     dbId = getDbid(orderId)
-
     #构造服务器地址 /{category}/{dbId}/{orderId}/getContextData
     serverUrl = '%s/%s/%s/%s/getContextData' % (orderAccessServerUrl,category,dbId,orderId)
     #构造请求参数
-    payload = keyList
+    payload ={'jsonString':json.dumps(keyList)}
     r = requests.post(url=serverUrl, json=payload)  # 带参数的GET请求
     r.encoding = 'utf-8'  # 这里添加一行
     response = json_loads_byteified(r.text)
@@ -166,7 +186,16 @@ def putOrderContext(category,orderId,contextMap):
     #构造服务器地址 /{category}/{dbId}/{orderId}/getContextData
     serverUrl = '%s/%s/%s/%s/putContextData' % (orderAccessServerUrl,category,dbId,orderId)
     #构造请求参数
-    payload = contextMap
+    orderMainContext = OrderMainContext(category,orderId,'')
+    orderMainContext.setContextDatas(contextMap)
+    if any(orderMainContext.getContextDatas()):
+        payload = {'orderId': orderMainContext.getOrderId(), 'catetory': orderMainContext.getCategory(),
+                   'ownerKey': orderMainContext.getOwnerKey(), 'contextDatas': orderMainContext.getContextDatas()}
+    else:
+        payload = {'orderId': orderMainContext.getOrderId(), 'catetory': orderMainContext.getCategory(),
+                   'ownerKey': orderMainContext.getOwnerKey()}
+    print("putOrderContext  :" + serverUrl + ' payload:' + json.dumps(payload))
+
     r = requests.post(url=serverUrl, json=payload)  # 带参数的GET请求
     r.encoding = 'utf-8'  # 这里添加一行
     response = json_loads_byteified(r.text)
@@ -178,13 +207,31 @@ def putOrderContext(category,orderId,contextMap):
 reload(sys)
 sys.setdefaultencoding('utf8')
 category='coojisu_playing'
-orderId = getOrderId(category,'121212')
+#orderId = getOrderId(category,'121212')
+orderId = '62382880070002'
 print('getorderId:' + orderId)
 orderMainContext = OrderMainContext(category,orderId,'33333')
 
-processResult = createOrder(orderMainContext)
-print(processResult)
 
+processResult = createOrder(orderMainContext)
+print("createOrder return:" + json.dumps(processResult))
+
+contextMap={'testkey1':'testkeyValue1','testKey2':'testKeyValue2'}
+processResult = putOrderContext(category,orderId,contextMap)
+if processResult['retCode']==0:
+    print("put orderContext Success")
+print("putOrderContext return:" + json.dumps(processResult))
+
+keyList = []
+keyList.append('testkey1')
+keyList.append('testKey2')
+processResult = getOrderContext(category,orderId,keyList)
+print("getOrderContext return:" + json.dumps(processResult))
+if processResult['retCode']==0:
+    responseInfo = getResponseInfo(processResult)
+    print(type(responseInfo))
+    print(getContextValue(responseInfo,'testkey1'))
+    
 '''
 print sys.stdout.encoding + " - sys.stdout.encoding:"
 sys.stdout = codecs.getwriter('utf8')(sys.stdout) 
