@@ -7,9 +7,9 @@ import locale
 import os
 import codecs
 
-orderIdServerUrl=""
+orderIdServerUrl="http://172.18.10.73:9087/orderId"
 #order接入的服务地址，需要包含工程名，不能以/结尾
-orderAccessServerUrl=""
+orderAccessServerUrl="http://172.18.10.73:9087/orderGateway"
 class ProcessResult(object):
     def __init__(self,retCode,retMsg):
         return {'retCode':retCode,'retMsg':retMsg}
@@ -19,16 +19,15 @@ class ProcessResult(object):
     pass
 
 
-def getDbid(orderId)
+def getDbid(orderId):
     if not orderId.strip() and len(orderId) >= 7:
         return orderId[-4:]
     return ""
-def getSuccessResponse()
-    processResult =
+
 #定义创建的订单的上下文
 class OrderMainContext(object):
     #初始化map为空
-    contextDatas=[]
+    contextDatas={}
     dbid="000000"
     def __init__(self, category, orderId, ownerKey):
         self.setOrderId(orderId)
@@ -115,7 +114,17 @@ def createOrder(orderMainContext):
     #构造服务器地址 /{category}/{dbId}/{orderId}/createOrder
     serverUrl = '%s/%s/%s/%s/createOrder' % (orderAccessServerUrl,category,dbId,orderId)
     #构造请求参数
-    payload = orderMainContext
+    #print("orderMainContext:" + serverUrl +' len:' + str(len(orderMainContext.getContextDatas())))
+    #orderMainContext.setContextDatas({'aaa':'dddd','eee':'fffff'})
+    #print("orderMainContext:" + serverUrl + ' context:' + json.dumps((orderMainContext.getContextDatas())))
+    if any(orderMainContext.getContextDatas()):
+        payload = {'orderId': orderMainContext.getOrderId(), 'catetory': orderMainContext.getCategory(),
+                   'ownerKey': orderMainContext.getOwnerKey(), 'contextDatas':orderMainContext.getContextDatas()}
+    else:
+        payload = {'orderId': orderMainContext.getOrderId(), 'catetory': orderMainContext.getCategory(),
+                       'ownerKey': orderMainContext.getOwnerKey()}
+    #payload = {'orderId':orderMainContext.getOrderId(),'catetory':orderMainContext.getCategory(),'ownerKey':orderMainContext.getOwnerKey()}
+    print("create order :" + serverUrl +' payload:'+ json.dumps(payload))
     r = requests.post(url=serverUrl, json=payload)  # 带参数的GET请求
     r.encoding = 'utf-8'  # 这里添加一行
     response = json_loads_byteified(r.text)
@@ -149,94 +158,35 @@ def getOrderContext(category,orderId,keyList):
     r.encoding = 'utf-8'  # 这里添加一行
     response = json_loads_byteified(r.text)
     return response
-
 '''
-query the course Information 
-Args:
-	baseUrl : ipaddress or hostName
-	courseId: courseId
-Returns:
-	courseInfo
+保存上下文到订单系统中
 '''
-
-
-def queryCourse(baseUrl, courseId):
-    website = '%s/studentCourse/%s/queryCourse' % (baseUrl, courseId)
-    print('******enter queryCourse uri:%s ******' % (baseUrl))
-
-    r = requests.get(url=website)  # 带参数的GET请求
+def putOrderContext(category,orderId,contextMap):
+    dbId = getDbid(orderId)
+    #构造服务器地址 /{category}/{dbId}/{orderId}/getContextData
+    serverUrl = '%s/%s/%s/%s/putContextData' % (orderAccessServerUrl,category,dbId,orderId)
+    #构造请求参数
+    payload = contextMap
+    r = requests.post(url=serverUrl, json=payload)  # 带参数的GET请求
     r.encoding = 'utf-8'  # 这里添加一行
-    # r.encoding = 'GBK'
-    # response = json.loads(r.text)
     response = json_loads_byteified(r.text)
-    # response=r.json()
-    print(r.text)
-    print('*****************')
-    print(type(response['responseInfo']['title']))
-    print((response['responseInfo']['title'].decode('utf8')))
-
-    print(json.dumps(response['responseInfo']).decode('utf8'))
-
-    for key, value in response['responseInfo'].items():
-        if isinstance(value, str):
-            response[key] = value.decode('utf8')
-            print(response[key])
-    print(json.dumps(response['responseInfo']))
-    print('******leave queryCourse uri:%s ******' % (baseUrl))
     return response
 
 
-def publishCourseToHot(baseUrl, course):
-    website = '%s/hotCourseSearch/saveCourse' % (baseUrl)
-    print(website)
 
-    r = requests.post(url=website, json=course)  # 带参数的GET请求
-    r.encoding = 'utf-8'  # 这里添加一行
-    # r.encoding = 'GBK'
-    # response = json.loads(r.text)
-    response = json_loads_byteified(r.text)
-    # response=r.json()
-    print(r.text)
-    return response
-
-
-'''
-to publish the new course to elasticsearch
-'''
 
 reload(sys)
 sys.setdefaultencoding('utf8')
+category='coojisu_playing'
+orderId = getOrderId(category,'121212')
+print('getorderId:' + orderId)
+orderMainContext = OrderMainContext(category,orderId,'33333')
+
+processResult = createOrder(orderMainContext)
+print(processResult)
+
 '''
 print sys.stdout.encoding + " - sys.stdout.encoding:"
 sys.stdout = codecs.getwriter('utf8')(sys.stdout) 
 print sys.stdout.encoding + " - sys.stdout.encoding:"
-'''
-# define the request parameters for rest request
-payload = {'keyword': '真好', 'pageNum': 1, 'pageSize': 100}
-print(json.dumps(['foo', {'bar': ('baz', None, 1.0, 2)}]))
-
-r = requests.post(url='http://www.chunzeacademy.com:8080/newCourseSearch/search', json=payload)  # 带参数的GET请求
-print(r.text)
-print('hotcourse ')
-payload = {'userid': '', 'keyword': '', 'pageNum': 1, 'pageSize': 100}
-r = requests.post(url='http://www.chunzeacademy.com:8080/hotCourseSearch/search', json=payload)  # 带参数的GET请求
-
-print('query course :' + r.text)
-# print(json.dumps(r))
-
-r = queryCourse('http://www.chunzeacademy.com:8080', '10001030001')
-if r['retCode'] == 0:
-    print('get course success')
-    publishCourseToHot('http://www.chunzeacademy.com:8080', r['responseInfo'])
-
-# 配置文件，20各个新课程，
-# 从课程中心读取课程
-# 将这些课程的权重提高，更新搜索引擎，更新JS模版；
-
-'''
-r = requests.get(url='http://www.itwhy.org')    # 最基本的GET请求
-print(r.status_code)    # 获取返回状态
-r = requests.get(url='http://dict.baidu.com/s', params={'wd':'python'})   #带参数的GET请求
-print(r.url)
-print(r.text)   #打印解码后的返回数据
 '''
